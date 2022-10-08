@@ -132,9 +132,9 @@ class SpuriousValDataset(Dataset):
         return len(self.val_dataset)
 
     def __getitem__(self, idx):
-        x,y,z,g,sp,ids = self.val_dataset.__getitem__(idx)
+        x,y,z,g,sp = self.val_dataset.__getitem__(idx)
         g = g - self.train_envs
-        return x,y,z,g,sp,ids
+        return x,y,z,g,sp
 
 class SpuriousDataset(Dataset):
     def __init__(self, root_dir, target_name, confounder_names, auxilary_names, train_num, test_num, cons_train, cons_test):
@@ -190,7 +190,7 @@ class SpuriousDataset(Dataset):
             img = self.eval_transform(img)
         x = img
 
-        return x,y,z,g,sp,self.filename_array[idx]
+        return x,y,z,g,sp
 
     def get_splits(self, splits, train_frac=1.0):
         subsets = []

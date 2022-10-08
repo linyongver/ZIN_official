@@ -1,10 +1,17 @@
 import argparse
+import pdb
 import math
 import numpy as np
 import torch
+from torchvision import datasets
+from data import CowCamels
+from data import AntiReg
 import os
 import sys
 from torch import nn, optim, autograd
+import numpy as np
+from torch.optim.lr_scheduler import LambdaLR
+
 
 
 def torch_bernoulli(p, size):
@@ -103,6 +110,112 @@ def make_environment(images, labels, e):
       'labels': labels[:, None],
       'color': (1- color_mask[:, None])
     }
+
+
+def make_environment_fullcolor(images, labels, sp_ratio, noise_ratio):
+    colors = [(1, 1, 0), (1, 0, 1), (0, 1, 1),
+                (1, 0, 0), (0, 1, 0), (1, 0.5, 0),
+                (0, 0, 1), (1, 1, 1),
+                (0, 0.4, 0.8), (0.8,0,0.4)]
+    images = images.reshape((-1, 28, 28))[:, ::2, ::2]
+    images = torch.stack([images, images, images], dim=1).long()
+    NUM_CLASSES = 10
+    assert len(colors) == NUM_CLASSES
+    sp_list = []
+    ln_list = []
+    for i in range( images.shape[0]): #
+        if np.random.random() < noise_ratio: # 0.25
+            label_ = np.random.choice([
+            x for x in list(range(NUM_CLASSES))
+            if x != labels[i]])
+            ln = 0
+        else:
+            label_ = labels[i]
+            ln = 1
+        ln_list.append(ln) # label noise
+        if np.random.random() < sp_ratio: # 0.1
+            color_ = np.random.choice([
+            x for x in list(range(NUM_CLASSES))
+            if x != label_])
+            sp = 0
+        else:
+            color_ = label_
+            sp = 1
+        sp_list.append(sp)
+        bc = torch.Tensor(colors[torch.tensor(color_).long()])[:, None, None]
+        images[i] = (images[i] * bc).long().clone()
+        labels[i] = torch.tensor(label_).long().clone()
+    return {
+      'images': (images.float() / 255.),
+      'labels': labels[:, None],
+      'color': torch.Tensor(sp_list)[:, None]
+    }
+
+
+def make_fullmnist_envs(flags):
+    mnist = datasets.MNIST('~/datasets/mnist', train=True, download=True)
+    mnist_train = (mnist.data[:flags.data_num], mnist.targets[:flags.data_num])
+    mnist_val = (mnist.data[flags.data_num:], mnist.targets[flags.data_num:])
+    rng_state = np.random.get_state()
+    np.random.shuffle(mnist_train[0].numpy())
+    np.random.set_state(rng_state)
+    np.random.shuffle(mnist_train[1].numpy())
+    # Build environments
+    sp_ratio_list = [ 1- float(x) for x in flags.cons_ratio.split("_")]
+    envs_num = len(sp_ratio_list) - 1
+    envs = []
+    for i in range(envs_num):
+        envs.append(
+          make_environment_fullcolor(
+              mnist_train[0][i::envs_num],
+              mnist_train[1][i::envs_num],
+              sp_ratio=sp_ratio_list[i],
+              noise_ratio=flags.noise_ratio))
+    envs.append(
+        make_environment_fullcolor(
+            mnist_val[0],
+            mnist_val[1],
+            sp_ratio=sp_ratio_list[-1],
+            noise_ratio=flags.noise_ratio))
+    return envs
+
+def make_mnist_envs(flags):
+    mnist = datasets.MNIST('~/datasets/mnist', train=True, download=True)
+    mnist_train = (mnist.data[:flags.data_num], mnist.targets[:flags.data_num])
+    mnist_val = (mnist.data[flags.data_num:], mnist.targets[flags.data_num:])
+    rng_state = np.random.get_state()
+    np.random.shuffle(mnist_train[0].numpy())
+    np.random.set_state(rng_state)
+    np.random.shuffle(mnist_train[1].numpy())
+    # Build environments
+    envs_num = flags.envs_num
+    envs = []
+    if flags.env_type == "linear":
+        for i in range(envs_num):
+            envs.append(
+              make_environment(
+                  mnist_train[0][i::envs_num],
+                  mnist_train[1][i::envs_num],
+                  (0.2 - 0.1)/(envs_num-1) * i + 0.1))
+    elif flags.env_type == "sin":
+        for i in range(envs_num):
+            envs.append(
+                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1))
+    elif flags.env_type == "step":
+        lower_coef = 0.1
+        upper_coef = 0.2
+        env_per_group = flags.envs_num // 2
+        for i in range(envs_num):
+            env_coef = lower_coef if i < env_per_group else upper_coef
+            envs.append(
+                make_environment(
+                    mnist_train[0][i::envs_num],
+                    mnist_train[1][i::envs_num],
+                    env_coef))
+    else:
+        raise Exception
+    envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9))
+    return envs
 
 def make_one_logit(num, sp_ratio, dim_inv, dim_spu):
     cc = CowCamels(
@@ -225,8 +338,8 @@ def make_reg_envs(total_num, flags):
 def mean_nll_class(logits, y):
     return nn.functional.binary_cross_entropy_with_logits(logits, y)
 
-def mean_nll_multi_class(logits, y):
-    nll = nn.CrossEntropyLoss()
+def mean_nll_multi_class(logits, y, reduction='mean'):
+    nll = nn.CrossEntropyLoss(reduction=reduction)
     return nll(logits, y.view(-1).long())
 
 def mean_nll_reg(logits, y):
@@ -280,6 +393,14 @@ class CMNIST_LYDP(LYDataProviderMK):
         self.flags = flags
         self.envs = make_mnist_envs(flags)
         self.preprocess_data()
+
+class CMNISTFULL_LYDP(LYDataProviderMK):
+    def __init__(self, flags):
+        super(CMNISTFULL_LYDP, self).__init__(flags)
+        self.flags = flags
+        self.envs = make_fullmnist_envs(flags)
+        self.preprocess_data()
+
 class LOGIT_LYDP(LYDataProviderMK):
     def __init__(self, flags):
         super(LOGIT_LYDP, self).__init__(flags)
@@ -287,3 +408,173 @@ class LOGIT_LYDP(LYDataProviderMK):
         self.envs = make_logit_envs(flags.data_num, flags)
         self.preprocess_data()
 
+class REG_LYDP(LYDataProviderMK):
+    def __init__(self, flags):
+        super(REG_LYDP, self).__init__(flags)
+        self.flags = flags
+        self.envs = make_reg_envs(flags.data_num, flags)
+        self.preprocess_data()
+
+class CIFAR_LYPD(LYDataProvider):
+    def __init__(self, flags):
+        super(CIFAR_LYPD, self).__init__()
+        self.flags = flags
+        self.preprocess_data()
+
+    def preprocess_data(self):
+        train_num=10000
+        test_num=1000 #1800
+        cons_list = [0.999,0.7,0.1]
+        train_envs = len(cons_list) - 1
+        ratio_list = [1. / train_envs] * (train_envs)
+        spd, self.train_loader, self.val_loader, self.test_loader, self.train_data, self.val_data, self.test_data = get_data_loader_cifarminst(
+            batch_size=self.flags.batch_size,
+            train_num=train_num,
+            test_num=test_num,
+            cons_ratios=cons_list,
+            train_envs_ratio=ratio_list,
+            label_noise_ratio=0.1,
+            color_spurious=False,
+            transform_data_to_standard=0,
+            oracle=0)
+        self.train_loader_iter = iter(self.train_loader)
+
+    def fetch_train(self):
+        try:
+            batch_data = self.train_loader_iter.__next__()
+        except:
+            self.train_loader_iter = iter(self.train_loader)
+            batch_data = self.train_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
+
+    def fetch_test(self):
+        ds = self.test_data.val_dataset
+        batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
+        batch = tuple(
+            torch.Tensor(t).cuda()
+            for t in batch)
+        x, y, g, sp = batch
+        return x, y.float(), g, sp
+
+    def test_batchs(self):
+        return math.ceil(self.test_data.val_dataset.x_array.shape[0] / self.flags.batch_size)
+
+
+class CELEBA_LYPD(LYDataProvider):
+    def __init__(self, flags):
+        super(CELEBA_LYPD, self).__init__()
+        self.flags = flags
+        self.preprocess_data()
+
+    def preprocess_data(self):
+        from celeba_z import get_data_loader_sp
+        self.spd, self.train_loader, self.val_loader, self.test_loader, self.train_data, self.val_data, self.test_data = get_data_loader_sp(
+            root_dir="/home/jzhangey/datasets/Spurious/data/celeba",
+            target_name="Smiling",
+            confounder_names="Male",
+            auxilary_names=["Young", "Blond_Hair", "Eyeglasses", "High_Cheekbones", "Big_Nose", "Bags_Under_Eyes", "Chubby"],
+            batch_size=100,
+            train_num=50000,
+            test_num=10000,
+            cons_ratios=[0.99, 0.9, 0.1])
+
+    def fetch_train(self):
+        try:
+            batch_data = self.train_loader_iter.__next__()
+        except:
+            self.train_loader_iter = iter(self.train_loader)
+            batch_data = self.train_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x,y,z,g,sp= batch_data
+        return x.float().cuda(), y.float().cuda(), z.float().cuda(), g ,sp
+
+    def fetch_test(self):
+        try:
+            batch_data = self.test_loader_iter.__next__()
+        except:
+            self.test_loader_iter = iter(self.test_loader)
+            batch_data = self.test_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x,y,z,g,sp= batch_data
+        return x.float().cuda(), y.float().cuda(), z.float().cuda(), g ,sp
+
+    def test_batchs(self):
+        return math.ceil(self.test_data.x_array.shape[0] / self.flags.batch_size)
+
+    def train_batchs(self):
+        return math.ceil(self.train_data.x_array.shape[0] / self.flags.batch_size)
+
+
+class COCOcolor_LYPD(LYDataProvider):
+    def __init__(self, flags):
+        super(COCOcolor_LYPD, self).__init__()
+        self.flags = flags
+        self.preprocess_data()
+
+    def preprocess_data(self):
+        sp_ratio_list = [float(x) for x in self.flags.cons_ratio.split("_")]
+        self.train_dataset, self.test_dataset = get_spcoco_dataset(
+            sp_ratio_list=sp_ratio_list,
+            noise_ratio=self.flags.noise_ratio,
+            num_classes=self.flags.num_classes,
+            flags=self.flags)
+        self.train_loader = torch.utils.data.DataLoader(
+            dataset=self.train_dataset,
+            batch_size=self.flags.batch_size,
+            shuffle=False,
+            num_workers=4)
+        self.test_loader = torch.utils.data.DataLoader(
+            dataset=self.test_dataset,
+            batch_size=self.flags.batch_size,
+            shuffle=False,
+            num_workers=4)
+        self.train_loader_iter = iter(self.train_loader)
+        self.test_loader_iter = iter(self.test_loader)
+
+    def fetch_train(self):
+        try:
+            batch_data = self.train_loader_iter.__next__()
+        except:
+            self.train_loader_iter = iter(self.train_loader)
+            batch_data = self.train_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
+
+    def fetch_test(self):
+        ds = self.test_dataset
+        batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
+        batch = tuple(
+            torch.Tensor(t).cuda()
+            for t in batch)
+        x, y, g, sp = batch
+        return x, y.float(), g, sp
+
+    def test_batchs(self):
+        return math.ceil(self.test_dataset.x_array.shape[0] / self.flags.batch_size)
+
+    def train_batchs(self):
+        return math.ceil(self.train_dataset.x_array.shape[0] / self.flags.batch_size)
+
+    def fetch_test_batch(self):
+        try:
+            batch_data = self.test_loader_iter.__next__()
+        except:
+            self.test_loader_iter = iter(self.test_loader)
+            batch_data = self.test_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
+
+
+class CosineLR(LambdaLR):
+
+    def __init__(self, optimizer, lr, num_epochs, offset=1):
+        self.init_lr = lr
+        fn = lambda epoch: lr * 0.5 * (1 + np.cos((epoch - offset) / num_epochs * np.pi))
+        super().__init__(optimizer, lr_lambda=fn)
+
+    def reset(self, epoch, num_epochs):
+        self.__init__(self.optimizer, self.init_lr, num_epochs, offset=epoch)

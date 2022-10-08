@@ -8,11 +8,15 @@ import pdb
 import math
 import numpy as np
 import torch
+from torchvision import datasets
 from data import CowCamels
 from data import AntiReg
 import os
 import sys
 from torch import nn, optim, autograd
+import random 
+from landcover import init_dataset, init_dataloader, initialize
+from model import MLP2Layer
 
 
 def torch_bernoulli(p, size):
@@ -88,16 +92,18 @@ class MetaAcc(object):
     def acc_fields(self):
         return [self.acc_type + "_acc"] + [self.acc_type + "_e%s" % x for x in range(self.env)]
 
-    def process_batch(self, labels, logits, g):
+    def process_batch(self, labels, logits, g): # calculates data_num, acc, acc for e0, acc for e1
         batch_dict = {}
         data_num = len(labels)
         batch_dict.update({"data_num": data_num})
+
         acc = self.acc_measure(logits, labels)
         batch_dict.update({"acc": acc})
+
         for e in range(self.env):
             env_name = "e%s"%e
-            env_locs = g==e
-            env_labels, env_logits, env_g = labels[env_locs], logits[env_locs], g[env_locs]
+            env_locs = (g==e).resize(g.shape[0]) # shape=[bs]
+            env_labels, env_logits, env_g = labels[env_locs], logits[env_locs], g[env_locs] # labels.shape=[bs,1]; logits.shape=[bs, class_num]; g.shape=[bs, 1];
             env_data_num = len(env_labels)
             if env_data_num == 0:
                 env_acc = 0
@@ -287,120 +293,6 @@ class LOGIT2Z(object):
         return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
 
 
-class LOGIT2Z_AB_z1(object):
-    def __init__(self, flags):
-        super(LOGIT2Z_AB_z1, self).__init__()
-        self.flags = flags
-        self.envs = make_logit_envs_z(flags)
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-        self.z_dim = self.train_z.shape[1]
-
-    def preprocess_data(self):
-        self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise= concat_envs_2z(self.envs[:self.flags.envs_num_train])
-        self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise = concat_envs_2z(self.envs[self.flags.envs_num_train:])
-        self.train_z = self.train_z[:, 0:1]
-        self.test_z = self.test_z[:, 0:1]
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
-
-
-class LOGIT2Z_AB_z2(object):
-    def __init__(self, flags):
-        super(LOGIT2Z_AB_z2, self).__init__()
-        self.flags = flags
-        self.envs = make_logit_envs_z(flags)
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-        self.z_dim = self.train_z.shape[1]
-
-    def preprocess_data(self):
-        self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise= concat_envs_2z(self.envs[:self.flags.envs_num_train])
-        self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise = concat_envs_2z(self.envs[self.flags.envs_num_train:])
-        self.train_z = self.train_z[:, 1:2]
-        self.test_z = self.test_z[:, 1:2]
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
-
-
-class LOGIT2Z_AB_X(object):
-    def __init__(self, flags):
-        super(LOGIT2Z_AB_X, self).__init__()
-        self.flags = flags
-        self.envs = make_logit_envs_z(flags)
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-        self.z_dim = self.train_z.shape[1]
-
-    def preprocess_data(self):
-        self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise= concat_envs_2z(self.envs[:self.flags.envs_num_train])
-        self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise = concat_envs_2z(self.envs[self.flags.envs_num_train:])
-        self.train_z = self.train_x
-        self.test_z = self.test_x
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
-
-
-class LOGIT2Z_AB_XY(object):
-    def __init__(self, flags):
-        super(LOGIT2Z_AB_XY, self).__init__()
-        self.flags = flags
-        self.envs = make_logit_envs_z(flags)
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-        self.z_dim = self.train_z.shape[1]
-
-    def preprocess_data(self):
-        self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise= concat_envs_2z(self.envs[:self.flags.envs_num_train])
-        self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise = concat_envs_2z(self.envs[self.flags.envs_num_train:])
-        self.train_z = torch.cat([self.train_x, self.train_y.float()], dim=1)
-        self.test_z = torch.cat([self.test_x, self.test_y.float()], dim=1)
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
-
-
-class LOGIT2Z_AB_ZXY(object):
-    def __init__(self, flags):
-        super(LOGIT2Z_AB_ZXY, self).__init__()
-        self.flags = flags
-        self.envs = make_logit_envs_z(flags)
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-        self.z_dim = self.train_z.shape[1]
-
-    def preprocess_data(self):
-        self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise= concat_envs_2z(self.envs[:self.flags.envs_num_train])
-        self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise = concat_envs_2z(self.envs[self.flags.envs_num_train:])
-        self.train_z = torch.cat([self.train_x, self.train_y.float(), self.train_z.float()], dim=1)
-        self.test_z = torch.cat([self.test_x, self.test_y.float(), self.train_z.float()], dim=1)
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, self.train_invnoise
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, self.test_invnoise
-
 class CELEBAZ(LYDataProvider):
     def __init__(self, flags):
         super(CELEBAZ, self).__init__()
@@ -468,10 +360,10 @@ class CELEBAZ_FEATURE(object):
                     _names = _names[:self.flags.aux_num]
                 out_list.append(torch.Tensor(df[_names].values).cuda())
             return tuple(out_list)
-        train_file = F"resource/train_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
+        train_file = F"datasets/CelebA/train_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
         #, self.train_invnoise
         self.train_x, self.train_y, self.train_z, self.train_g, self.train_c= process_file(train_file)
-        test_file = F"resource/test_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
+        test_file = F"datasets/CelebA/test_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
         print(train_file)
         self.test_x, self.test_y, self.test_z, self.test_g, self.test_c = process_file(test_file)
 
@@ -480,71 +372,9 @@ class CELEBAZ_FEATURE(object):
 
     def fetch_test(self):
         return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, None
-
-
-class HighFreqStock(object):
-    def __init__(self, flags):
-        super(HighFreqStock, self).__init__()
-        self.flags = flags
-        self.preprocess_data()
-        self.feature_dim = self.train_x.shape[1]
-        self.data_num_train = self.train_x.shape[0]
-
-    def preprocess_data(self):
-        mypath = "/home/ylindf/projects/data/stock_highfreq"
-        onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-        days = np.unique([f[:8] for f in onlyfiles])
-        def fecth_dfday(iday, sample_interval = 20):
-            x = np.load(F"{mypath}/{iday}x.npy")
-            y = np.load(F"{mypath}/{iday}y.npy")
-            x_norm = (x - np.nanmean(x, axis=0))/ np.nanstd(x, axis=0) 
-            y_norm = (y * 1000) - np.nanmean(y * 1000)
-            x_norm = np.nan_to_num(x_norm, nan=0)
-            y_norm = np.nan_to_num(y_norm, nan=0)
-            xy = np.concatenate([x_norm, y_norm[:, np.newaxis]], axis=-1)[:, 1:]
-            df = pd.DataFrame(data = xy,
-                columns=[str(F"x_{x}") for x in range(xy.shape[1] - 1)] + ["y"])
-            subdf = df.iloc[[x * sample_interval for x in range(600 // sample_interval)]]
-            subdf["day"] =  iday
-            return subdf
-        df_list = []
-        for iday in days:
-            df_list.append(fecth_dfday(iday, sample_interval = 20))
-        full_df = pd.concat(df_list)
-        full_df["month"] = full_df["day"].apply(lambda x: int(x[:6]))
-        full_df["year"] = full_df["day"].apply(lambda x: int(x[:4]))
-        full_df = full_df.reset_index()
-        full_df["z"] = full_df["day"].apply(lambda x: (datetime.datetime.strptime(x, '%Y%m%d') -  datetime.datetime.strptime("20190701", '%Y%m%d')).days)
-        full_df["g"] = full_df["day"].apply(lambda x: (datetime.datetime.strptime(x, '%Y%m%d') -  datetime.datetime.strptime("20190701", '%Y%m%d')).days // 30)
-        x_fields = [x for x in full_df.columns.tolist() if  x != "index" and "x" in x]
-        y_fields = ["y"]
-        z_fields = ["z"]
-        g_fields = ["g"]
-        train_list = [201907, 201908, 201909, 201910, 201911, 201912, 202001, 202002,202003,202004, 202005, 202006, 202007, 202008,]
-        test_list = [202009, 202010,202011, 202012, 202101, 202102, 202103, 202104, 202105, 202106]
-        train_df = full_df[full_df.month.isin(train_list)]
-        test_df = full_df[full_df.month.isin(test_list)]
-        self.train_x = torch.Tensor(train_df[x_fields].values).cuda()
-        self.train_y = torch.Tensor(train_df[y_fields].values).cuda()
-        self.train_z = torch.Tensor(train_df[z_fields].values).cuda()
-        self.train_g = torch.Tensor(train_df[g_fields].values).cuda()
-        self.train_c = torch.randint(0, 2, self.train_g.shape)
-        self.test_x = torch.Tensor(test_df[x_fields].values).cuda()
-        self.test_y = torch.Tensor(test_df[y_fields].values).cuda()
-        self.test_z = torch.Tensor(test_df[z_fields].values).cuda()
-        self.test_g = torch.Tensor(test_df[g_fields].values).cuda()
-        self.test_g = self.test_g - self.test_g.min()
-        self.test_c = torch.randint(0, 2, self.test_g.shape)
-        self.feature_dim = len(x_fields)
-        self.envs_num_train = self.train_g.max().int() + 1
-        self.envs_num_test = (self.test_g.max() - self.test_g.min()).int() + 1
-
-
-    def fetch_train(self):
-        return self.train_x, self.train_y, self.train_z, self.train_g, self.train_c, None
-
-    def fetch_test(self):
-        return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, None
+    
+    def fetch_mlp(self):
+        return MLP2Layer(self.flags, self.feature_dim, self.flags.hidden_dim).cuda()
 
 
 class HousePrice(object):
@@ -556,7 +386,7 @@ class HousePrice(object):
         self.data_num_train = self.train_x.shape[0]
 
     def preprocess_data(self):
-        mypath = "/home/ylindf/projects/data/house_data_precessed.csv"
+        mypath = "datasets/house_data_precessed.csv"
         full_df = pd.read_csv(mypath)
         full_df["yr_built_norm"] = (full_df["yr_built"] - full_df["yr_built"].mean())/full_df["yr_built"].std()
         full_df["yr_renovated_norm"] = (full_df["yr_renovated"] - full_df["yr_renovated"].mean())/full_df["yr_renovated"].std()
@@ -605,4 +435,86 @@ class HousePrice(object):
     def fetch_test(self):
         return self.test_x, self.test_y, self.test_z, self.test_g, self.test_c, None
 
+def random_zero_one(length):
+    zeros = [0] * int(length/2)
+    ones = [1] * (length - int(length/2))
+    result = zeros + ones
+    random.shuffle(result)
+    return torch.Tensor(result)
+
+def all_zero(length):
+    zeros = [0] * int(length)
+    return torch.Tensor(zeros)
+
+class LANDCOVER(object):
+    def __init__(self, flags):
+        super(LANDCOVER, self).__init__()
+        config = dict()
+        config['train_transforms'] = [{'classname': 'innout.datasets.transforms.LambdaTransform', 'args': {'function_path': 'innout.datasets.transforms.to_tensor'}}, {'classname': 'innout.datasets.transforms.LambdaTransform', 'args': {'function_path': 'innout.datasets.transforms.tensor_to_float'}}]
+        config['test_transforms'] = [{'classname': 'innout.datasets.transforms.LambdaTransform', 'args': {'function_path': 'innout.datasets.transforms.to_tensor'}}, {'classname': 'innout.datasets.transforms.LambdaTransform', 'args': {'function_path': 'innout.datasets.transforms.tensor_to_float'}}]
+        config['dataset'] = {'classname': 'innout.datasets.landcover.Landcover', 'args': {'root': '/u/nlp/data/landcover/timeseries_by_box_v2', 'cache_path': 'datasets/landcover_data.pkl', 'include_NDVI': True, 'include_ERA5': True, 'standardize': True, 'shuffle_domains': True, 'seed': 1, 'use_cache': True, 'use_unlabeled_id': False, 'use_unlabeled_ood': False, 'unlabeled_prop': 0.9, 'pretrain': False, 'multitask': False}, 'train_args': {'split': 'nonafrica-train'}, 'eval_train_args': {'split': 'nonafrica-train'}, 'val_args': {'split': 'nonafrica-val'}, 'test_args': {'split': 'nonafrica-test'}, 'test2_args': {'split': 'africa'}}
+        config['model'] = {'classname': 'innout.models.cnn1d.CNN1D', 'args': {'in_channels': 8, 'output_size': 6}}
+        config['use_cuda'] = True
+        config['batch_size'] = flags.batch_size
+        self.data_num_train = flags.batch_size
+        config['eval_batch_size'] = flags.batch_size
+        
+
+        # create dataset 
+        train_dataset = init_dataset(config, 'train') 
+        train_eval_dataset = init_dataset(config, 'train') 
+        val_dataset = init_dataset(config, 'val', train_dataset)
+        test_dataset = init_dataset(config, 'test2', train_dataset) 
+        print("landcover dataset loaded")
+
+        #  create dataloader.
+        self.train_loader = init_dataloader(config, train_dataset, 'train')
+        self.val_loader = init_dataloader(config, val_dataset, 'val')
+        self.test_loader = init_dataloader(config, test_dataset, 'test2')
+
+        self.mlp = initialize(config['model'])
+        
+    
+    def fetch_train(self):
+        bs = next(iter(self.train_loader))
+        train_xz = bs['data']
+        train_x = train_xz[:, :8, :]
+        train_y = bs['target']
+        lat_lon = bs['domain_label']['lat_lon']
+        climate = torch.mean(train_xz[:,8:,:].double(),dim=2)
+        train_z = lat_lon # aux info. You can choose from lat_lon and climate
+
+        train_g = torch.unsqueeze(random_zero_one(train_y.shape[0]),1)
+        train_c = torch.unsqueeze(random_zero_one(train_y.shape[0]),1)
+        return train_x.cuda(), train_y.cuda(), train_z.cuda(), train_g.cuda(), train_c.cuda(), None
+    
+    def fetch_test(self):
+        bs = next(iter(self.test_loader))
+        test_xz = bs['data']
+        test_x = test_xz[:, :8, :]
+        test_y = torch.unsqueeze(bs['target'],-1)
+        lat_lon = bs['domain_label']['lat_lon']
+        climate = torch.mean(test_xz[:,8:,:].double(),dim=2)
+        test_z = lat_lon # aux info 
+
+        test_g = torch.unsqueeze(random_zero_one(test_y.shape[0]),1)
+        test_c = torch.unsqueeze(random_zero_one(test_y.shape[0]),1)
+        return test_x.cuda(), test_y.cuda(), test_z.cuda(), test_g.cuda(), test_c.cuda(), None
+    
+    def fetch_val(self):
+        bs = next(iter(self.val_loader))
+        val_xz = bs['data']
+        val_x = val_xz[:, :8, :]
+        val_y = torch.unsqueeze(bs['target'],-1)
+        lat_lon = bs['domain_label']['lat_lon']
+        climate = torch.mean(val_xz[:,8:,:].double(),dim=2)
+        val_z = lat_lon # aux info 
+
+        val_g = torch.unsqueeze(random_zero_one(val_y.shape[0]),1)
+        val_c = torch.unsqueeze(random_zero_one(val_y.shape[0]),1)
+        return val_x.cuda(), val_y.cuda(), val_z.cuda(), val_g.cuda(), val_c.cuda(), None
+    
+
+    def fetch_mlp(self):
+        return self.mlp
 
