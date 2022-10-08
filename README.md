@@ -1,5 +1,5 @@
-# ZIN: Learning Invariance with Additional Auxiliary Information
-The repo for ZIN: When and How to Learn Invariance by Environment Inference?
+# ZIN: When and How to Learn Invariance Without Environment Partition?
+The repo for ZIN: When and How to Learn Invariance Without Environment Partition?
 
 Our implementation about landcover is based on the source code of [In-N-Out](https://github.com/p-lambda/in-n-out)
 

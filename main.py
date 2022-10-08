@@ -42,7 +42,8 @@ flags = parser.parse_args()
 print("batch_size is", flags.batch_size)
 
 torch.manual_seed(flags.seed)
-np.random.seed(flags.seed+111)
+if flags.dataset == 'landcover':
+    np.random.seed(flags.seed+111)  # to be consistent with in-N-out.
 
 flags.cons_ratio = "_".join([flags.cons_train, flags.cons_test])
 flags.envs_num_train = len(flags.cons_train.split("_"))
