@@ -50,3 +50,31 @@ bash data_downloader.sh
     ```
     The expected test accuracy is about `66.06`.
 
+## Use ZIN on Your Own Data
+We provider interface for you to include your own data. You need to inherit the 
+ class `LYDataProviderMK`, and re-implement the function `fetch_train` and `fetch_test`. The main function will call `fetch_train` to get training data for each step. `fetch_train` should return the following values:
+
+* `train_x`: the feature tensor;
+* `train_y`: the label tensor;
+* `train_z`: the auxilary information tensor;
+* `train_g`(optional, can set to be `None`): the tensor contains values indicating which environmnets the data are from;
+* `train_c`(optional, can set to be `None`): the tensor contains values indicating whether the spurious features align with the labels.
+* `train_invnoise`(optional, can set to be `None`): the tensor contains values indicating the noisy ratio of the label;
+
+The structure of the return value of `fetch_test` are similar with `fetch_train`.
+# Contact Information
+
+For help or issues using Bayesian Invariant Risk Minimization, please submit a GitHub issue.
+
+For personal communication related to BayesianIRM, please contact Yong Lin (`ylindf@connect.ust.hk`).
+
+# Reference 
+If you use or extend our work, please cite the following paper:
+```
+@inproceedings{lin2022zin,
+  title={ZIN: When and How to Learn Invariance Without Environment Partition?},
+  author={Lin, Yong and Zhu, Shengyu and Tan, Lu and Cui, Peng},
+  booktitle={Advances in neural information processing systems},
+  year={2022}
+}
+```
