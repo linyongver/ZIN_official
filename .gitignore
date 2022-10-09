@@ -1,4 +1,5 @@
 .DS_Store
+datasets
 resource
 *ipynb
 out*
