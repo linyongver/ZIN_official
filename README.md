@@ -64,9 +64,9 @@ We provider interface for you to include your own data. You need to inherit the
 The structure of the return value of `fetch_test` are similar with `fetch_train`.
 # Contact Information
 
-For help or issues using Bayesian Invariant Risk Minimization, please submit a GitHub issue.
+For help or issues using ZIN, please submit a GitHub issue.
 
-For personal communication related to BayesianIRM, please contact Yong Lin (`ylindf@connect.ust.hk`).
+For personal communication related to ZIN, please contact Yong Lin (`ylindf@connect.ust.hk`).
 
 # Reference 
 If you use or extend our work, please cite the following paper:
