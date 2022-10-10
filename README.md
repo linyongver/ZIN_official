@@ -50,6 +50,8 @@ The following parameters are only for the synthetic dataset:
 * `data_num_train`: number of training samples
 * `data_num_test`: number of testing samples
 
+The parameter for the Landcover dataset:
+* `aux_num`: the dimension of auxilary information, when `Z` is longitude and latitude when `aux_num=2`.
 
 # Quick Start (For Reproducing Results)
 1. To run the ZIN in the temporal dataset with setting p_s=(0.999, 0.9) and p_v=0.9.
