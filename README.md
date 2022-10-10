@@ -61,7 +61,7 @@ The following parameters are only for the synthetic dataset:
 
 2. To run ZIN in CelebA dataset with 7 auxiliary information: "Young", "Blond_Hair", "Eyeglasses", "High_Cheekbones", "Big_Nose", "Bags_Under_Eyes", "Chubby"
     ```
-    python main.py --l2_regularizer_weight 0.001 --lr 0.005 --penalty_weight 10000 --steps 8500 --n_restarts 1 --irm_type infer_irmv1_multi_class --dataset celebaz_feature --penalty_anneal_iters 8000 --seed 1
+    python main.py --l2_regularizer_weight 0.001 --lr 0.005 --noise_ratio 0.2 --cons_train 0.999_0.8 --cons_test 0.01_0.2_0.8_0.999 --penalty_weight 10000 --steps 8500 --dim_inv 5 --dim_sp 5 --data_num_train 39996 --data_num_test 20000 --n_restarts 1 --irm_type infer_irmv1 --dataset celebaz_feature --penalty_anneal_iters 8000 --seed 1
     ```
 
     The expected test accuracy is about `76.29`.
