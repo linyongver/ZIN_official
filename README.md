@@ -32,6 +32,25 @@ Dataset Discriptions:
 
 [3] Xiao Zhou, Yong Lin, Renjie Pi, Weizhong Zhang, Renzhe Xu, Peng Cui, Tong Zhang., Model Agnostic Sample Reweighting for Out-of-Distribution Learning, ICML 2022
 
+# Parameters
+* `l2_regularizer_weight`: L2 regularization weight.
+* `lr`: learning rate
+* `steps`: training steps
+* `irm_type`: which algorithm to use.
+* `dataset`: which dataset to use
+* `penalty_anneal_iters`: the ERM proceducer befor imposing the IRM penalty on the model, this is also the environmental inference procedure.
+
+
+The following parameters are only for the synthetic dataset:
+* `noise_ratio`:
+* `cons_train`:
+* `cons_test`:
+* `dim_inv`:
+* `dim_sp`:
+* `data_num_train`:
+* `data_num_test`
+
+
 # Quick Start (For Reproducing Results)
 1. To run the ZIN in the temporal dataset with setting p_s=(0.999, 0.9) and p_v=0.9.
     ```
