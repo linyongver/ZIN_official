@@ -27,7 +27,9 @@ Dataset Discriptions:
 * Landcover. Our implementation on landcover is based on the source code of [In-N-Out](https://github.com/p-lambda/in-n-out). Notably, we use exact the same random seed as In-N-Out.
 
 [1] Yong Lin, Hanze Dong, Hao Wang, Tong Zhang, Bayesian Invariant Risk Minimization, CVPR 2022 
+
 [2] Xiao Zhou, Yong Lin, Weizhong Zhang, Tong Zhang, Sparse Invariant Risk Minimization, ICML 2022
+
 [3] Xiao Zhou, Yong Lin, Renjie Pi, Weizhong Zhang, Renzhe Xu, Peng Cui, Tong Zhang., Model Agnostic Sample Reweighting for Out-of-Distribution Learning, ICML 2022
 
 # Quick Start (For Reproducing Results)
