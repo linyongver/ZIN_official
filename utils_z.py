@@ -360,10 +360,10 @@ class CELEBAZ_FEATURE(object):
                     _names = _names[:self.flags.aux_num]
                 out_list.append(torch.Tensor(df[_names].values).cuda())
             return tuple(out_list)
-        train_file = F"datasets/CelebA/train_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
+        train_file = F"datasets/CelebA/train_40000_0.999_0.8_20000_0.01_0.2_0.8_0.999.csv"
         #, self.train_invnoise
         self.train_x, self.train_y, self.train_z, self.train_g, self.train_c= process_file(train_file)
-        test_file = F"datasets/CelebA/test_{train_num}_{self.flags.cons_train}_{test_num}_{self.flags.cons_test}.csv"
+        test_file = F"datasets/CelebA/test_40000_0.999_0.8_20000_0.01_0.2_0.8_0.999.csv"
         print(train_file)
         self.test_x, self.test_y, self.test_z, self.test_g, self.test_c = process_file(test_file)
 
