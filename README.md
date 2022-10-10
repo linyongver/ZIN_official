@@ -42,13 +42,13 @@ Dataset Discriptions:
 
 
 The following parameters are only for the synthetic dataset:
-* `noise_ratio`:
-* `cons_train`:
-* `cons_test`:
-* `dim_inv`:
-* `dim_sp`:
-* `data_num_train`:
-* `data_num_test`
+* `noise_ratio`: noise ratio when generation Y from invariant features
+* `cons_train`: the correlation  between spurious features and Y in the training domains
+* `cons_test`: the correlation  between spurious features and Y in the testing domains
+* `dim_inv`: dimension of invariant features
+* `dim_sp`: dimension of spurious features
+* `data_num_train`: number of training samples
+* `data_num_test`: number of testing samples
 
 
 # Quick Start (For Reproducing Results)
