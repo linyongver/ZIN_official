@@ -1,7 +1,6 @@
 # ZIN: When and How to Learn Invariance Without Environment Partition?
 The repo for ZIN: When and How to Learn Invariance Without Environment Partition?
 
-Our implementation about landcover is based on the source code of [In-N-Out](https://github.com/p-lambda/in-n-out)
 
 # Requirements
 ## Environment
@@ -22,6 +21,14 @@ Run the following command to download the datasets: CelebA, house_price, landcov
 ```
 bash data_downloader.sh
 ```
+Dataset Discriptions:
+* HousePrice.  This is implemented based on the house price dataset from [Kaggle](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data)
+* CelebA. The dataset is from [here](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html). Since IRM suffers from overfitting problem when applied to large models like ResNet-18, we fix the feature extraction backbone (that is, use a pre-trained ResNet-18 with fixed blocks) in this task. One may avoid this limitation by incorperate overfitting robust IRM variants like [1][2][3].
+* Landcover. Our implementation on landcover is based on the source code of [In-N-Out](https://github.com/p-lambda/in-n-out). Notably, we use exact the same random seed as In-N-Out.
+
+[1] Yong Lin, Hanze Dong, Hao Wang, Tong Zhang, Bayesian Invariant Risk Minimization, CVPR 2022 
+[2] Xiao Zhou, Yong Lin, Weizhong Zhang, Tong Zhang, Sparse Invariant Risk Minimization, ICML 2022
+[3] Xiao Zhou, Yong Lin, Renjie Pi, Weizhong Zhang, Renzhe Xu, Peng Cui, Tong Zhang., Model Agnostic Sample Reweighting for Out-of-Distribution Learning, ICML 2022
 
 # Quick Start (For Reproducing Results)
 1. To run the ZIN in the temporal dataset with setting p_s=(0.999, 0.9) and p_v=0.9.
