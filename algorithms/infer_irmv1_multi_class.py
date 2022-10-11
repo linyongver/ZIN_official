@@ -33,18 +33,28 @@ class Infer_Irmv1_Multi_Class:
 
         infered_envs = self.infer_env(normed_z)
         train_penalty = 0
-        train_nll = torch.unsqueeze(train_nll, 1)
-        multi_loss = train_nll * infered_envs
-        for i in range(multi_loss.shape[1]):
-            grad1 = autograd.grad(
-                    multi_loss[:,i][0::2].mean(), # multi_loss.shape=[bs,2]
+        if self.flags.dataset == "landcover":   # also for any dataset that is trained with mini-batch manner.
+            train_nll = torch.unsqueeze(train_nll, 1)
+            multi_loss = train_nll * infered_envs
+            for i in range(multi_loss.shape[1]):
+                    grad1 = autograd.grad(
+                            multi_loss[:,i][0::2].mean(), # multi_loss.shape=[bs,2]
+                            [scale],
+                            create_graph=True)[0]
+                    grad2 = autograd.grad(
+                            multi_loss[:,i][1::2].mean(),
+                            [scale],
+                            create_graph=True)[0]        
+                    train_penalty += (grad1 * grad2).mean()
+        else:
+            multi_loss = (train_nll * infered_envs).mean(axis=0) 
+            for i in range(multi_loss.shape[0]):
+                grad = autograd.grad(
+                    multi_loss[i],
                     [scale],
                     create_graph=True)[0]
-            grad2 = autograd.grad(
-                    multi_loss[:,i][1::2].mean(),
-                    [scale],
-                    create_graph=True)[0]        
-            train_penalty += (grad1 * grad2).mean()
+                train_penalty += grad ** 2
+    
         train_nll = train_nll.mean()
 
         if step < self.flags.penalty_anneal_iters:
