@@ -1,6 +1,8 @@
 # ZIN: When and How to Learn Invariance Without Environment Partition?
 The repo for ZIN: When and How to Learn Invariance Without Environment Partition?
 
+This project is implemented based on [IRM](https://github.com/facebookresearch/InvariantRiskMinimization), [eiil](https://github.com/ecreager/eiil) and [In-N-Out](https://github.com/p-lambda/in-n-out).
+
 
 # Requirements
 ## Environment
@@ -36,7 +38,7 @@ Dataset Discriptions:
 * `l2_regularizer_weight`: L2 regularization weight.
 * `lr`: learning rate
 * `steps`: training steps
-* `irm_type`: which algorithm to use.
+* `irm_type`: which algorithm to use, `infer_irmv1` and `infer_irmv1_multi_class` are for `ZIN`. If the number of inferred envs are larger than `2`, you need to choose `infer_irmv1_multi_class`. Otherwise, they are the same.
 * `dataset`: which dataset to use
 * `penalty_anneal_iters`: the ERM proceducer befor imposing the IRM penalty on the model, this is also the environmental inference procedure.
 
@@ -54,6 +56,7 @@ The parameter for the Landcover dataset:
 * `aux_num`: the dimension of auxilary information, when `Z` is longitude and latitude when `aux_num=2`.
 
 # Quick Start (For Reproducing Results)
+## Run ZIN
 1. To run the ZIN in the temporal dataset with setting p_s=(0.999, 0.9) and p_v=0.9.
     ```
     python main.py --l2_regularizer_weight 0.001 --lr 0.005 --noise_ratio 0.1 --cons_train 0.999_0.9 --cons_test 0.999_0.8_0.2_0.001 --penalty_weight 10000 --steps 10000 --dim_inv 5 --dim_sp 5 --data_num_train 5000 --data_num_test 5000 --n_restarts 1 --irm_type infer_irmv1 --dataset logit_z --penalty_anneal_iters 5000
@@ -80,6 +83,22 @@ The parameter for the Landcover dataset:
     python main.py --aux_num 2 --batch_size 1024 --seed 112 --classes_num 6 --dataset landcover --opt adam --l2_regularizer_weight 0.001 --print_every 1 --lr 0.1 --irm_type infer_irmv1_multi_class --n_restarts 1 --num_classes 6 --z_class_num 2 --penalty_anneal_iters 40 --penalty_weight 10 --steps 400 --scheduler 1
     ```
     The expected test accuracy is about `66.06`.
+
+## Run Methods on MCOLOR
+1. To run MCOLOR with ERM, IRM and EIIL:
+    ```
+    cd eiil
+    ./exps/mcolor.sh
+    ```
+    Note that the eiil subdirectory is modified from [eiil](https://github.com/ecreager/eiil), and has its own license.
+
+2. To run CMNIST with ERM, IRM and EIIL:
+    ```
+    cd eiil
+    ./exps/cmnist_with_specified_label_noise.sh 
+    ```
+    Note that the eiil subdirectory is modified from [eiil](https://github.com/ecreager/eiil), and has its own license.
+
 
 ## Use ZIN on Your Own Data
 We provider interface for you to include your own data. You need to inherit the 
