@@ -5,7 +5,11 @@ This project is implemented based on [IRM](https://github.com/facebookresearch/I
 
 
 # Requirements
+
+
 ## Environment
+There are two methods to get the environment. You only need to try ONE method that you prefer.
+### Method 1: Conda / Pip
 Our code works with the following environment:
 * pytorch-transformers==1.2.0
 * torch==1.3.1
@@ -15,6 +19,11 @@ Our code works with the following environment:
 To install the necessary packages for the project, please run: 
 ```
 pip install -r requirements.txt
+```
+
+### Method 2: Docker
+```
+docker pull lutan0914/zin
 ```
 
 
